@@ -1,7 +1,20 @@
 import os
 import string
 import sys
+import subprocess
 
+def _sys_exec(args):
+  try:
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (out, err) = proc.communicate()
+    # accommodate if error is nothing, set it to None
+    if err == '':
+      err = None
+    # strip any newline at the end or beginning of string
+    # for real output
+    return [out.rstrip("\r\n").lstrip() if out is not None else None, err]
+  except Exception:
+    return [None, str(sys.exc_info())]
 
 def is_active():
     return True
@@ -21,10 +34,18 @@ def can_build():
 
 def get_opts():
     from SCons.Variables import BoolVariable
+
+    # get current active Xcode path
+    path_result = _sys_exec(["xcode-select", "-p"])
+    xcode_path = '/Applications/Xcode.app/Contents/Developer'
+    if path_result[1] is None:
+      # get the result path
+      xcode_path = path_result[0]
+
     return [
         ('IPHONEPLATFORM', 'Name of the iPhone platform', 'iPhoneOS'),
-        ('IPHONEPATH', 'Path to iPhone toolchain', '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain'),
-        ('IPHONESDK', 'Path to the iPhone SDK', '/Applications/Xcode.app/Contents/Developer/Platforms/${IPHONEPLATFORM}.platform/Developer/SDKs/${IPHONEPLATFORM}.sdk/'),
+        ('IPHONEPATH', 'Path to iPhone toolchain', '%s/Toolchains/XcodeDefault.xctoolchain' % xcode_path),
+        ('IPHONESDK', 'Path to the iPhone SDK', '%s/Platforms/${IPHONEPLATFORM}.platform/Developer/SDKs/${IPHONEPLATFORM}.sdk/' % xcode_path),
         BoolVariable('game_center', 'Support for game center', True),
         BoolVariable('store_kit', 'Support for in-app store', True),
         BoolVariable('icloud', 'Support for iCloud', True),
